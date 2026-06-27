@@ -3,6 +3,7 @@ package events
 import "time"
 
 type EventInterface interface {
+	SetPayload(payload interface{})
 	GetName() string
 	GetDataTime() time.Time
 	GetPayload() interface{}

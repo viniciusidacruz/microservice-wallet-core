@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/entity"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/event"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -52,7 +54,10 @@ func TestCreateTransactionUseCase(t *testing.T) {
 		AccountToID:   account2.ID,
 		Amount:        100,
 	}
-	uc := NewCreateTransactionUseCase(transactionGateway, accountGateway)
+
+	eventDispatcher := events.NewEventDispatcher()
+	transactionCreatedEvent := event.NewTransactionCreated()
+	uc := NewCreateTransactionUseCase(transactionGateway, accountGateway, eventDispatcher, transactionCreatedEvent)
 	output, err := uc.Execute(inputDTO)
 
 	assert.Nil(t, err)

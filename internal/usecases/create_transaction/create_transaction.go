@@ -3,6 +3,7 @@ package createtransaction
 import (
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/entity"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/gateway"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/events"
 )
 
 type CreateTransactionInputDTO struct {
@@ -18,12 +19,21 @@ type CreateTransactionOutputDTO struct {
 type CreateTransactionUseCase struct {
 	TransactionGateway gateway.TransactionGateway
 	AccountGateway     gateway.AccountGateway
+	EventDispatcher    events.EventDispatcherInterface
+	TransactionCreated events.EventInterface
 }
 
-func NewCreateTransactionUseCase(transactionGateway gateway.TransactionGateway, accountGateway gateway.AccountGateway) *CreateTransactionUseCase {
+func NewCreateTransactionUseCase(
+	transactionGateway gateway.TransactionGateway,
+	accountGateway gateway.AccountGateway,
+	eventDispatcher events.EventDispatcherInterface,
+	transactionCreatedEvent events.EventInterface,
+) *CreateTransactionUseCase {
 	return &CreateTransactionUseCase{
 		TransactionGateway: transactionGateway,
 		AccountGateway:     accountGateway,
+		EventDispatcher:    eventDispatcher,
+		TransactionCreated: transactionCreatedEvent,
 	}
 }
 
@@ -47,6 +57,9 @@ func (u *CreateTransactionUseCase) Execute(input CreateTransactionInputDTO) (*Cr
 	if err != nil {
 		return nil, err
 	}
+
+	u.TransactionCreated.SetPayload(transaction)
+	u.EventDispatcher.Dispatch(u.TransactionCreated)
 
 	return &CreateTransactionOutputDTO{
 		ID: transaction.ID,
