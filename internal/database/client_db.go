@@ -18,7 +18,7 @@ func NewClientDB(db *sql.DB) *ClientDB {
 
 func (c *ClientDB) Get(id string) (*entity.Client, error) {
 	client := &entity.Client{}
-	stmt, err := c.DB.Prepare("SELECT id, name, email, created_at, updated_at FROM clients WHERE id = $1")
+	stmt, err := c.DB.Prepare("SELECT id, name, email, created_at, updated_at FROM clients WHERE id = ?")
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (c *ClientDB) Get(id string) (*entity.Client, error) {
 }
 
 func (c *ClientDB) Save(client *entity.Client) error {
-	stmt, err := c.DB.Prepare("INSERT INTO clients (id, name, email, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)")
+	stmt, err := c.DB.Prepare("INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
