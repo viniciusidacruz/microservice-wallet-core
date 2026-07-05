@@ -1,4 +1,4 @@
-package createaccount
+package create_account
 
 import (
 	"testing"
@@ -48,7 +48,7 @@ func TestCreateAccountUseCase(t *testing.T) {
 	uc := NewCreateAccountUseCase(accountGateway, clientGateway)
 	inputDTO := CreateAccountInputDTO{
 		ClientID: client.ID,
-	}	
+	}
 	output, err := uc.Execute(inputDTO)
 
 	assert.Nil(t, err)

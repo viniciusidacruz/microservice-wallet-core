@@ -1,4 +1,4 @@
-package createtransaction
+package create_transaction
 
 import (
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/entity"

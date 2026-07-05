@@ -1,4 +1,4 @@
-package createclient
+package create_client
 
 import (
 	"time"
@@ -8,14 +8,14 @@ import (
 )
 
 type CreateClientInputDTO struct {
-	Name string
+	Name  string
 	Email string
 }
 
 type CreateClientOutputDTO struct {
-	ID string
-	Name string
-	Email string
+	ID        string
+	Name      string
+	Email     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -31,7 +31,7 @@ func NewCreateClientUseCase(clientGateway gateway.ClientGateway) *CreateClientUs
 }
 
 func (u *CreateClientUseCase) Execute(input CreateClientInputDTO) (*CreateClientOutputDTO, error) {
-	client, err :=  entity.NewClient(input.Name, input.Email)
+	client, err := entity.NewClient(input.Name, input.Email)
 
 	if err != nil {
 		return nil, err
@@ -44,9 +44,9 @@ func (u *CreateClientUseCase) Execute(input CreateClientInputDTO) (*CreateClient
 	}
 
 	return &CreateClientOutputDTO{
-		ID: client.ID,
-		Name: client.Name,
-		Email: client.Email,
+		ID:        client.ID,
+		Name:      client.Name,
+		Email:     client.Email,
 		CreatedAt: client.CreatedAt,
 		UpdatedAt: client.UpdatedAt,
 	}, nil

@@ -1,4 +1,4 @@
-package createaccount
+package create_account
 
 import (
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/entity"
@@ -15,13 +15,13 @@ type CreateAccountOutputDTO struct {
 
 type CreateAccountUseCase struct {
 	AccountGateway gateway.AccountGateway
-	ClientGateway gateway.ClientGateway
+	ClientGateway  gateway.ClientGateway
 }
 
 func NewCreateAccountUseCase(accountGateway gateway.AccountGateway, clientGateway gateway.ClientGateway) *CreateAccountUseCase {
 	return &CreateAccountUseCase{
 		AccountGateway: accountGateway,
-		ClientGateway: clientGateway,
+		ClientGateway:  clientGateway,
 	}
 }
 

@@ -1,4 +1,4 @@
-package createclient
+package create_client
 
 import (
 	"testing"
@@ -30,7 +30,7 @@ func TestCreateClientUseCase(t *testing.T) {
 
 	uc := NewCreateClientUseCase(m)
 	output, err := uc.Execute(CreateClientInputDTO{
-		Name: "John",
+		Name:  "John",
 		Email: "test",
 	})
 
