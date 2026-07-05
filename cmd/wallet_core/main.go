@@ -8,6 +8,17 @@ import (
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/create_account"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/create_client"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/create_transaction"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/delete_account"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/delete_all_accounts"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/delete_all_clients"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/delete_all_transactions"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/delete_client"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/delete_transaction"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/get_account"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/get_client"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/list_accounts"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/list_clients"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/set_account_balance"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/web"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/web/webserver"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/events"
@@ -15,7 +26,7 @@ import (
 )
 
 func main() {
-	db, err := sql.Open("mysql", "root:root@tcp(localhost:3306)/wallet")
+	db, err := sql.Open("mysql", "root:root@tcp(localhost:3306)/wallet?parseTime=true")
 
 	if err != nil {
 		panic(err)
@@ -32,16 +43,40 @@ func main() {
 	transactionDB := database.NewTransactionDB(db)
 
 	clientUseCase := create_client.NewCreateClientUseCase(clientDB)
-	accountUseCase := create_account.NewCreateAccountUseCase(accountDB, clientDB)
-	transactionUseCase := create_transaction.NewCreateTransactionUseCase(transactionDB, accountDB, eventDispatcher, transactionCreatedEvent)
+	getClientUseCase := get_client.NewGetClientUseCase(clientDB)
+	listClientsUseCase := list_clients.NewListClientsUseCase(clientDB)
+	deleteClientUseCase := delete_client.NewDeleteClientUseCase(clientDB, accountDB)
+	deleteAllClientsUseCase := delete_all_clients.NewDeleteAllClientsUseCase(clientDB, accountDB, transactionDB)
 
-	clientHandler := web.NewWebClientHandler(*clientUseCase)
-	accountHandler := web.NewWebAccountHandler(*accountUseCase)
-	transactionHandler := web.NewWebTransactionHandler(*transactionUseCase)
+	accountUseCase := create_account.NewCreateAccountUseCase(accountDB, clientDB)
+	setAccountBalanceUseCase := set_account_balance.NewSetAccountBalanceUseCase(accountDB)
+	getAccountUseCase := get_account.NewGetAccountUseCase(accountDB)
+	listAccountsUseCase := list_accounts.NewListAccountsUseCase(accountDB)
+	deleteAccountUseCase := delete_account.NewDeleteAccountUseCase(accountDB, transactionDB)
+	deleteAllAccountsUseCase := delete_all_accounts.NewDeleteAllAccountsUseCase(accountDB, transactionDB)
+
+	transactionUseCase := create_transaction.NewCreateTransactionUseCase(transactionDB, accountDB, eventDispatcher, transactionCreatedEvent)
+	deleteTransactionUseCase := delete_transaction.NewDeleteTransactionUseCase(transactionDB)
+	deleteAllTransactionsUseCase := delete_all_transactions.NewDeleteAllTransactionsUseCase(transactionDB)
+
+	clientHandler := web.NewWebClientHandler(*clientUseCase, *getClientUseCase, *listClientsUseCase, *deleteClientUseCase, *deleteAllClientsUseCase)
+	accountHandler := web.NewWebAccountHandler(*accountUseCase, *setAccountBalanceUseCase, *getAccountUseCase, *listAccountsUseCase, *deleteAccountUseCase, *deleteAllAccountsUseCase)
+	transactionHandler := web.NewWebTransactionHandler(*transactionUseCase, *deleteTransactionUseCase, *deleteAllTransactionsUseCase)
 
 	webServer := webserver.NewWebServer(":8080")
-	webServer.AddHandler("/clients", clientHandler.CreateClient)
-	webServer.AddHandler("/accounts", accountHandler.CreateAccount)
-	webServer.AddHandler("/transactions", transactionHandler.CreateTransaction)
+	webServer.Get("/clients", clientHandler.ListClients)
+	webServer.Get("/clients/{id}", clientHandler.GetClient)
+	webServer.Post("/clients", clientHandler.CreateClient)
+	webServer.Delete("/clients", clientHandler.DeleteAllClients)
+	webServer.Delete("/clients/{id}", clientHandler.DeleteClient)
+	webServer.Get("/accounts", accountHandler.ListAccounts)
+	webServer.Get("/accounts/{id}", accountHandler.GetAccount)
+	webServer.Post("/accounts", accountHandler.CreateAccount)
+	webServer.Post("/accounts/balance", accountHandler.SetAccountBalance)
+	webServer.Delete("/accounts", accountHandler.DeleteAllAccounts)
+	webServer.Delete("/accounts/{id}", accountHandler.DeleteAccount)
+	webServer.Post("/transactions", transactionHandler.CreateTransaction)
+	webServer.Delete("/transactions", transactionHandler.DeleteAllTransactions)
+	webServer.Delete("/transactions/{id}", transactionHandler.DeleteTransaction)
 	webServer.Start()
 }
