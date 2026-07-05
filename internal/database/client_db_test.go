@@ -58,3 +58,46 @@ func (s *ClientDBTestSuite) TestSave() {
 	s.Equal(client.Name, clientFound.Name)
 	s.Equal(client.Email, clientFound.Email)
 }
+
+func (s *ClientDBTestSuite) TestList() {
+	client1, _ := entity.NewClient("John Doe", "j@j.com")
+	client2, _ := entity.NewClient("Jane Doe", "j@j2.com")
+
+	s.Nil(s.ClientDB.Save(client1))
+	s.Nil(s.ClientDB.Save(client2))
+
+	clients, err := s.ClientDB.List()
+	s.Nil(err)
+	s.Len(clients, 2)
+	s.Equal(client1.ID, clients[0].ID)
+	s.Equal(client2.ID, clients[1].ID)
+}
+
+func (s *ClientDBTestSuite) TestGetByEmail() {
+	client, _ := entity.NewClient("John Doe", "j@j.com")
+	s.Nil(s.ClientDB.Save(client))
+
+	clientFound, err := s.ClientDB.GetByEmail(client.Email)
+	s.Nil(err)
+	s.Equal(client.ID, clientFound.ID)
+}
+
+func (s *ClientDBTestSuite) TestDelete() {
+	client, _ := entity.NewClient("John Doe", "j@j.com")
+	s.Nil(s.ClientDB.Save(client))
+	s.Nil(s.ClientDB.Delete(client.ID))
+
+	_, err := s.ClientDB.Get(client.ID)
+	s.Error(err)
+}
+
+func (s *ClientDBTestSuite) TestDeleteAll() {
+	client1, _ := entity.NewClient("John Doe", "j@j.com")
+	client2, _ := entity.NewClient("Jane Doe", "j@j2.com")
+	s.Nil(s.ClientDB.Save(client1))
+	s.Nil(s.ClientDB.Save(client2))
+
+	count, err := s.ClientDB.DeleteAll()
+	s.Nil(err)
+	s.Equal(int64(2), count)
+}

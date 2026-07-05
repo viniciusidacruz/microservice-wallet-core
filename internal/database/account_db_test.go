@@ -57,3 +57,64 @@ func (s *AccountDBTestSuite) TestFindByID() {
 	s.Equal(account.Balance, accountFound.Balance)
 	s.Equal(account.Client.ID, accountFound.Client.ID)
 }
+
+func (s *AccountDBTestSuite) TestUpdateBalance() {
+	s.DB.Exec("INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)", s.Client.ID, s.Client.Name, s.Client.Email, s.Client.CreatedAt, s.Client.UpdatedAt)
+
+	account := entity.NewAccount(s.Client)
+	err := s.AccountDB.Save(account)
+	s.Nil(err)
+
+	err = account.SetBalance(1500)
+	s.Nil(err)
+
+	err = s.AccountDB.UpdateBalance(account)
+	s.Nil(err)
+
+	accountFound, err := s.AccountDB.FindByID(account.ID)
+	s.Nil(err)
+	s.Equal(float64(1500), accountFound.Balance)
+}
+
+func (s *AccountDBTestSuite) TestList() {
+	s.DB.Exec("INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)", s.Client.ID, s.Client.Name, s.Client.Email, s.Client.CreatedAt, s.Client.UpdatedAt)
+
+	account1 := entity.NewAccount(s.Client)
+	s.Nil(s.AccountDB.Save(account1))
+
+	client2, _ := entity.NewClient("Jane Doe", "j@j2.com")
+	s.DB.Exec("INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)", client2.ID, client2.Name, client2.Email, client2.CreatedAt, client2.UpdatedAt)
+
+	account2 := entity.NewAccount(client2)
+	s.Nil(s.AccountDB.Save(account2))
+
+	accounts, err := s.AccountDB.List()
+	s.Nil(err)
+	s.Len(accounts, 2)
+	s.Equal(account1.ID, accounts[0].ID)
+	s.Equal(account2.ID, accounts[1].ID)
+	s.Equal(s.Client.Name, accounts[0].Client.Name)
+	s.Equal(client2.Name, accounts[1].Client.Name)
+}
+
+func (s *AccountDBTestSuite) TestFindByClientID() {
+	s.DB.Exec("INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)", s.Client.ID, s.Client.Name, s.Client.Email, s.Client.CreatedAt, s.Client.UpdatedAt)
+
+	account := entity.NewAccount(s.Client)
+	s.Nil(s.AccountDB.Save(account))
+
+	accountFound, err := s.AccountDB.FindByClientID(s.Client.ID)
+	s.Nil(err)
+	s.Equal(account.ID, accountFound.ID)
+}
+
+func (s *AccountDBTestSuite) TestDelete() {
+	s.DB.Exec("INSERT INTO clients (id, name, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)", s.Client.ID, s.Client.Name, s.Client.Email, s.Client.CreatedAt, s.Client.UpdatedAt)
+
+	account := entity.NewAccount(s.Client)
+	s.Nil(s.AccountDB.Save(account))
+	s.Nil(s.AccountDB.Delete(account.ID))
+
+	_, err := s.AccountDB.FindByID(account.ID)
+	s.Error(err)
+}

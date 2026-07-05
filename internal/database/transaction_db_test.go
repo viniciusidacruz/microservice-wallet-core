@@ -62,3 +62,36 @@ func (s *TransactionDBTestSuite) TestCreate() {
 	s.Equal(float64(900), s.accountFrom.Balance)
 	s.Equal(float64(1100), s.accountTo.Balance)
 }
+
+func (s *TransactionDBTestSuite) TestExists() {
+	transaction, err := entity.NewTransaction(s.accountFrom, s.accountTo, 100)
+	s.Nil(err)
+	s.Nil(s.TransactionDB.Create(transaction))
+
+	exists, err := s.TransactionDB.Exists(s.accountFrom.ID, s.accountTo.ID, 100)
+	s.Nil(err)
+	s.True(exists)
+
+	exists, err = s.TransactionDB.Exists(s.accountFrom.ID, s.accountTo.ID, 200)
+	s.Nil(err)
+	s.False(exists)
+}
+
+func (s *TransactionDBTestSuite) TestFindByIDAndDelete() {
+	transaction, err := entity.NewTransaction(s.accountFrom, s.accountTo, 100)
+	s.Nil(err)
+	s.Nil(s.TransactionDB.Create(transaction))
+
+	found, err := s.TransactionDB.FindByID(transaction.ID)
+	s.Nil(err)
+	s.Equal(transaction.ID, found.ID)
+
+	exists, err := s.TransactionDB.ExistsByAccountID(s.accountFrom.ID)
+	s.Nil(err)
+	s.True(exists)
+
+	s.Nil(s.TransactionDB.Delete(transaction.ID))
+
+	_, err = s.TransactionDB.FindByID(transaction.ID)
+	s.Error(err)
+}

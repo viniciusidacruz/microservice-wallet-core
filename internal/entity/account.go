@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,4 +39,15 @@ func (a *Account) Credit(amount float64) {
 func (a *Account) Debit(amount float64) {
 	a.Balance -= amount
 	a.UpdatedAt = time.Now()
+}
+
+func (a *Account) SetBalance(balance float64) error {
+	if balance < 0 {
+		return errors.New("balance must be greater than or equal to zero")
+	}
+
+	a.Balance = balance
+	a.UpdatedAt = time.Now()
+
+	return nil
 }

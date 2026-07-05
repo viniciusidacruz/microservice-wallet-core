@@ -34,3 +34,21 @@ func TestDebitAccount(t *testing.T) {
 	account.Debit(50)
 	assert.Equal(t, float64(50), account.Balance)
 }
+
+func TestSetAccountBalance(t *testing.T) {
+	client, _ := entity.NewClient("John Doe", "j@j.com")
+	account := entity.NewAccount(client)
+
+	err := account.SetBalance(250)
+	assert.Nil(t, err)
+	assert.Equal(t, float64(250), account.Balance)
+}
+
+func TestSetAccountBalanceWhenBalanceIsNegative(t *testing.T) {
+	client, _ := entity.NewClient("John Doe", "j@j.com")
+	account := entity.NewAccount(client)
+
+	err := account.SetBalance(-1)
+	assert.Error(t, err)
+	assert.Equal(t, "balance must be greater than or equal to zero", err.Error())
+}
