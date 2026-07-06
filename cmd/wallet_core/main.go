@@ -22,6 +22,7 @@ import (
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/web"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/web/webserver"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/events"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/uow"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -55,7 +56,12 @@ func main() {
 	deleteAccountUseCase := delete_account.NewDeleteAccountUseCase(accountDB, transactionDB)
 	deleteAllAccountsUseCase := delete_all_accounts.NewDeleteAllAccountsUseCase(accountDB, transactionDB)
 
-	transactionUseCase := create_transaction.NewCreateTransactionUseCase(transactionDB, accountDB, eventDispatcher, transactionCreatedEvent)
+	transactionUnitOfWork := uow.NewSQLUnitOfWork(db)
+	transactionUseCase := create_transaction.NewCreateTransactionUseCase(
+		transactionUnitOfWork,
+		eventDispatcher,
+		transactionCreatedEvent,
+	)
 	deleteTransactionUseCase := delete_transaction.NewDeleteTransactionUseCase(transactionDB)
 	deleteAllTransactionsUseCase := delete_all_transactions.NewDeleteAllTransactionsUseCase(transactionDB)
 

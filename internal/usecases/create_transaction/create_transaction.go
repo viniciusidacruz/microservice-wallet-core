@@ -6,8 +6,8 @@ import (
 
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/apperror"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/entity"
-	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/gateway"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/events"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/uow"
 )
 
 type CreateTransactionInputDTO struct {
@@ -21,21 +21,18 @@ type CreateTransactionOutputDTO struct {
 }
 
 type CreateTransactionUseCase struct {
-	TransactionGateway gateway.TransactionGateway
-	AccountGateway     gateway.AccountGateway
+	UnitOfWork         uow.UnitOfWork
 	EventDispatcher    events.EventDispatcherInterface
 	TransactionCreated events.EventInterface
 }
 
 func NewCreateTransactionUseCase(
-	transactionGateway gateway.TransactionGateway,
-	accountGateway gateway.AccountGateway,
+	unitOfWork uow.UnitOfWork,
 	eventDispatcher events.EventDispatcherInterface,
 	transactionCreatedEvent events.EventInterface,
 ) *CreateTransactionUseCase {
 	return &CreateTransactionUseCase{
-		TransactionGateway: transactionGateway,
-		AccountGateway:     accountGateway,
+		UnitOfWork:         unitOfWork,
 		EventDispatcher:    eventDispatcher,
 		TransactionCreated: transactionCreatedEvent,
 	}
@@ -58,7 +55,7 @@ func (u *CreateTransactionUseCase) Execute(input CreateTransactionInputDTO) (*Cr
 		return nil, apperror.NewValidation("amount must be greater than zero")
 	}
 
-	accountFrom, err := u.AccountGateway.FindByID(input.AccountFromID)
+	accountFrom, err := u.UnitOfWork.Account().FindByID(input.AccountFromID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, apperror.NewNotFound("account from not found")
@@ -67,7 +64,7 @@ func (u *CreateTransactionUseCase) Execute(input CreateTransactionInputDTO) (*Cr
 		return nil, apperror.NewInternal("failed to get account from", err)
 	}
 
-	accountTo, err := u.AccountGateway.FindByID(input.AccountToID)
+	accountTo, err := u.UnitOfWork.Account().FindByID(input.AccountToID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, apperror.NewNotFound("account to not found")
@@ -81,7 +78,7 @@ func (u *CreateTransactionUseCase) Execute(input CreateTransactionInputDTO) (*Cr
 		return nil, apperror.NewValidation(err.Error())
 	}
 
-	exists, err := u.TransactionGateway.Exists(input.AccountFromID, input.AccountToID, input.Amount)
+	exists, err := u.UnitOfWork.Transaction().Exists(input.AccountFromID, input.AccountToID, input.Amount)
 	if err != nil {
 		return nil, apperror.NewInternal("failed to check transaction duplicate", err)
 	}
@@ -90,9 +87,28 @@ func (u *CreateTransactionUseCase) Execute(input CreateTransactionInputDTO) (*Cr
 		return nil, apperror.NewConflict("transaction already exists")
 	}
 
-	err = u.TransactionGateway.Create(transaction)
+	err = u.UnitOfWork.Do(func(repos uow.Repositories) error {
+		if err := repos.Account.UpdateBalance(accountFrom); err != nil {
+			return apperror.NewInternal("failed to update account from balance", err)
+		}
+
+		if err := repos.Account.UpdateBalance(accountTo); err != nil {
+			return apperror.NewInternal("failed to update account to balance", err)
+		}
+
+		if err := repos.Transaction.Create(transaction); err != nil {
+			return apperror.NewInternal("failed to create transaction", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		return nil, apperror.NewInternal("failed to create transaction", err)
+		var appErr *apperror.AppError
+		if errors.As(err, &appErr) {
+			return nil, appErr
+		}
+
+		return nil, apperror.NewInternal("failed to commit transaction", err)
 	}
 
 	u.TransactionCreated.SetPayload(transaction)

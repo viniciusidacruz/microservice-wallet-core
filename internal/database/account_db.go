@@ -7,10 +7,10 @@ import (
 )
 
 type AccountDB struct {
-	DB *sql.DB
+	DB DBTX
 }
 
-func NewAccountDB(db *sql.DB) *AccountDB {
+func NewAccountDB(db DBTX) *AccountDB {
 	return &AccountDB{
 		DB: db,
 	}

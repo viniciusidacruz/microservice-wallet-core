@@ -8,6 +8,7 @@ import (
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/entity"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/event"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/events"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/uow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -110,6 +111,12 @@ func TestCreateTransactionUseCase(t *testing.T) {
 	accountGateway := &AccountGatewayMock{}
 	accountGateway.On("FindByID", account1.ID).Return(account1, nil)
 	accountGateway.On("FindByID", account2.ID).Return(account2, nil)
+	accountGateway.On("UpdateBalance", mock.MatchedBy(func(account *entity.Account) bool {
+		return account.ID == account1.ID && account.Balance == 900
+	})).Return(nil)
+	accountGateway.On("UpdateBalance", mock.MatchedBy(func(account *entity.Account) bool {
+		return account.ID == account2.ID && account.Balance == 1100
+	})).Return(nil)
 
 	transactionGateway := &TransactionGatewayMock{}
 	transactionGateway.On("Exists", account1.ID, account2.ID, float64(100)).Return(false, nil)
@@ -123,7 +130,8 @@ func TestCreateTransactionUseCase(t *testing.T) {
 
 	eventDispatcher := events.NewEventDispatcher()
 	transactionCreatedEvent := event.NewTransactionCreated()
-	uc := NewCreateTransactionUseCase(transactionGateway, accountGateway, eventDispatcher, transactionCreatedEvent)
+	unitOfWork := uow.NewPassThroughUnitOfWork(accountGateway, transactionGateway)
+	uc := NewCreateTransactionUseCase(unitOfWork, eventDispatcher, transactionCreatedEvent)
 	output, err := uc.Execute(inputDTO)
 
 	assert.Nil(t, err)
@@ -131,11 +139,12 @@ func TestCreateTransactionUseCase(t *testing.T) {
 	accountGateway.AssertExpectations(t)
 	transactionGateway.AssertExpectations(t)
 	accountGateway.AssertNumberOfCalls(t, "FindByID", 2)
+	accountGateway.AssertNumberOfCalls(t, "UpdateBalance", 2)
 	transactionGateway.AssertNumberOfCalls(t, "Create", 1)
 }
 
 func TestCreateTransactionUseCase_ValidationErrors(t *testing.T) {
-	uc := NewCreateTransactionUseCase(nil, nil, events.NewEventDispatcher(), event.NewTransactionCreated())
+	uc := NewCreateTransactionUseCase(nil, events.NewEventDispatcher(), event.NewTransactionCreated())
 
 	tests := []struct {
 		name    string
@@ -180,7 +189,8 @@ func TestCreateTransactionUseCase_AccountFromNotFound(t *testing.T) {
 	accountGateway := &AccountGatewayMock{}
 	accountGateway.On("FindByID", "missing-from").Return((*entity.Account)(nil), sql.ErrNoRows)
 
-	uc := NewCreateTransactionUseCase(nil, accountGateway, events.NewEventDispatcher(), event.NewTransactionCreated())
+	unitOfWork := uow.NewPassThroughUnitOfWork(accountGateway, &TransactionGatewayMock{})
+	uc := NewCreateTransactionUseCase(unitOfWork, events.NewEventDispatcher(), event.NewTransactionCreated())
 	output, err := uc.Execute(CreateTransactionInputDTO{
 		AccountFromID: "missing-from",
 		AccountToID:   "acc-2",
@@ -204,7 +214,8 @@ func TestCreateTransactionUseCase_InsufficientFunds(t *testing.T) {
 	accountGateway.On("FindByID", account1.ID).Return(account1, nil)
 	accountGateway.On("FindByID", account2.ID).Return(account2, nil)
 
-	uc := NewCreateTransactionUseCase(nil, accountGateway, events.NewEventDispatcher(), event.NewTransactionCreated())
+	unitOfWork := uow.NewPassThroughUnitOfWork(accountGateway, &TransactionGatewayMock{})
+	uc := NewCreateTransactionUseCase(unitOfWork, events.NewEventDispatcher(), event.NewTransactionCreated())
 	output, err := uc.Execute(CreateTransactionInputDTO{
 		AccountFromID: account1.ID,
 		AccountToID:   account2.ID,
@@ -232,7 +243,7 @@ func TestCreateTransactionUseCase_DuplicateTransaction(t *testing.T) {
 	transactionGateway := &TransactionGatewayMock{}
 	transactionGateway.On("Exists", account1.ID, account2.ID, float64(100)).Return(true, nil)
 
-	uc := NewCreateTransactionUseCase(transactionGateway, accountGateway, events.NewEventDispatcher(), event.NewTransactionCreated())
+	uc := NewCreateTransactionUseCase(uow.NewPassThroughUnitOfWork(accountGateway, transactionGateway), events.NewEventDispatcher(), event.NewTransactionCreated())
 	output, err := uc.Execute(CreateTransactionInputDTO{
 		AccountFromID: account1.ID,
 		AccountToID:   account2.ID,

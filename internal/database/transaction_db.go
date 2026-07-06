@@ -7,10 +7,10 @@ import (
 )
 
 type TransactionDB struct {
-	DB *sql.DB
+	DB DBTX
 }
 
-func NewTransactionDB(db *sql.DB) *TransactionDB {
+func NewTransactionDB(db DBTX) *TransactionDB {
 	return &TransactionDB{
 		DB: db,
 	}
