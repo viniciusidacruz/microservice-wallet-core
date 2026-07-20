@@ -24,17 +24,27 @@ type CreateTransactionUseCase struct {
 	UnitOfWork         uow.UnitOfWork
 	EventDispatcher    events.EventDispatcherInterface
 	TransactionCreated events.EventInterface
+	BalanceUpdated     events.EventInterface
+}
+
+type BalanceUpdatedOutputDTO struct {
+	AccountFromID      string  `json:"account_from_id"`
+	AccountToID        string  `json:"account_to_id"`
+	BalanceAccountFrom float64 `json:"balance_account_from"`
+	BalanceAccountTo   float64 `json:"balance_account_to"`
 }
 
 func NewCreateTransactionUseCase(
 	unitOfWork uow.UnitOfWork,
 	eventDispatcher events.EventDispatcherInterface,
 	transactionCreatedEvent events.EventInterface,
+	balanceUpdatedEvent events.EventInterface,
 ) *CreateTransactionUseCase {
 	return &CreateTransactionUseCase{
 		UnitOfWork:         unitOfWork,
 		EventDispatcher:    eventDispatcher,
 		TransactionCreated: transactionCreatedEvent,
+		BalanceUpdated:     balanceUpdatedEvent,
 	}
 }
 
@@ -113,6 +123,14 @@ func (u *CreateTransactionUseCase) Execute(input CreateTransactionInputDTO) (*Cr
 
 	u.TransactionCreated.SetPayload(transaction)
 	u.EventDispatcher.Dispatch(u.TransactionCreated)
+
+	u.BalanceUpdated.SetPayload(BalanceUpdatedOutputDTO{
+		AccountFromID:      accountFrom.ID,
+		AccountToID:        accountTo.ID,
+		BalanceAccountFrom: accountFrom.Balance,
+		BalanceAccountTo:   accountTo.Balance,
+	})
+	u.EventDispatcher.Dispatch(u.BalanceUpdated)
 
 	return &CreateTransactionOutputDTO{
 		ID: transaction.ID,

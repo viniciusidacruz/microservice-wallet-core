@@ -40,13 +40,17 @@ func main() {
 
 	configMap := &ckafka.ConfigMap{
 		"bootstrap.servers": "localhost:9092",
+		"acks":              "all",
 	}
 
 	kafkaProducer := kafka.NewKafkaProducer(configMap)
+	defer kafkaProducer.Close()
 
 	eventDispatcher := events.NewEventDispatcher()
 	eventDispatcher.Register("TransactionCreated", handler.NewTransactionCreatedKafkaHandler(kafkaProducer))
+	eventDispatcher.Register("BalanceUpdated", handler.NewBalanceUpdatedKafkaHandler(kafkaProducer))
 	transactionCreatedEvent := event.NewTransactionCreated()
+	balanceUpdatedEvent := event.NewBalanceUpdated()
 
 	clientDB := database.NewClientDB(db)
 	accountDB := database.NewAccountDB(db)
@@ -70,6 +74,7 @@ func main() {
 		transactionUnitOfWork,
 		eventDispatcher,
 		transactionCreatedEvent,
+		balanceUpdatedEvent,
 	)
 	deleteTransactionUseCase := delete_transaction.NewDeleteTransactionUseCase(transactionDB)
 	deleteAllTransactionsUseCase := delete_all_transactions.NewDeleteAllTransactionsUseCase(transactionDB)

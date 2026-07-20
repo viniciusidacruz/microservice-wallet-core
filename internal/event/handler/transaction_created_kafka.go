@@ -16,9 +16,15 @@ func NewTransactionCreatedKafkaHandler(kafka *kafka.Producer) *TransactionCreate
 }
 
 func (h *TransactionCreatedKafkaHandler) Handle(message events.EventInterface) {
-	if err := h.Kafka.Publish(message.GetPayload(), nil, "transactions"); err != nil {
+	eventMessage := map[string]interface{}{
+		"name":    message.GetName(),
+		"payload": message.GetPayload(),
+	}
+
+	if err := h.Kafka.Publish(eventMessage, nil, "transactions"); err != nil {
 		fmt.Println("TransactionCreatedKafkaHandler error:", err)
 		return
 	}
-	fmt.Println("TransactionCreatedKafkaHandler published:", message.GetPayload())
+
+	fmt.Println("TransactionCreatedKafkaHandler published:", eventMessage)
 }

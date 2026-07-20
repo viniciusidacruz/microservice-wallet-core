@@ -8,39 +8,44 @@ import (
 )
 
 type Producer struct {
-	ConfigMap *ckafka.ConfigMap
+	producer *ckafka.Producer
 }
 
 func NewKafkaProducer(config *ckafka.ConfigMap) *Producer {
-	return &Producer{ConfigMap: config}
+	producer, err := ckafka.NewProducer(config)
+	if err != nil {
+		panic(err)
+	}
+
+	return &Producer{producer: producer}
 }
 
 func (p *Producer) Publish(msg interface{}, key []byte, topic string) error {
-	producer, err := ckafka.NewProducer(p.ConfigMap)
-	if err != nil {
-		return err
-	}
-	defer producer.Close()
-
 	payload, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
 
-	message := &ckafka.Message{
+	deliveryChan := make(chan ckafka.Event, 1)
+	err = p.producer.Produce(&ckafka.Message{
 		TopicPartition: ckafka.TopicPartition{Topic: &topic, Partition: ckafka.PartitionAny},
 		Key:            key,
 		Value:          payload,
-	}
-
-	err = producer.Produce(message, nil)
+	}, deliveryChan)
 	if err != nil {
 		return err
 	}
 
-	if remaining := producer.Flush(15 * 1000); remaining > 0 {
-		return fmt.Errorf("failed to flush kafka messages: %d remaining", remaining)
+	event := <-deliveryChan
+	message := event.(*ckafka.Message)
+	if message.TopicPartition.Error != nil {
+		return fmt.Errorf("failed to deliver kafka message: %w", message.TopicPartition.Error)
 	}
 
 	return nil
+}
+
+func (p *Producer) Close() {
+	p.producer.Flush(15 * 1000)
+	p.producer.Close()
 }
