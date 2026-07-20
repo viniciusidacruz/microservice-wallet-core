@@ -1,0 +1,58 @@
+### Wallet Core
+
+@walletHost = http://localhost:8080
+
+### List clients
+GET {{walletHost}}/clients
+
+### Create client
+POST {{walletHost}}/clients
+Content-Type: application/json
+
+{
+  "name": "Alice Smith",
+  "email": "alice@example.com"
+}
+
+### List accounts
+GET {{walletHost}}/accounts
+
+### Create account
+POST {{walletHost}}/accounts
+Content-Type: application/json
+
+{
+  "client_id": "11111111-1111-1111-1111-111111111111"
+}
+
+### Get seeded account from
+GET {{walletHost}}/accounts/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+
+### Get seeded account to
+GET {{walletHost}}/accounts/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+
+### Create transaction (publishes Kafka events)
+POST {{walletHost}}/transactions
+Content-Type: application/json
+
+{
+  "account_from_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "account_to_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+  "amount": 50
+}
+
+### Balances Service
+
+@balancesHost = http://localhost:3003
+
+### Health check
+GET {{balancesHost}}/health
+
+### Get balance for account from
+GET {{balancesHost}}/balances/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+
+### Get balance for account to
+GET {{balancesHost}}/balances/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+
+### Get balance not found
+GET {{balancesHost}}/balances/00000000-0000-0000-0000-000000000000

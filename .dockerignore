@@ -1,0 +1,8 @@
+.docker
+.git
+node_modules
+node/node_modules
+node/dist
+wallet_core
+*.md
+api.http

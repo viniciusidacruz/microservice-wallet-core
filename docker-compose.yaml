@@ -1,21 +1,39 @@
 services:
-  goapp:
-    build: .
-    platform: linux/amd64
-    volumes:
-      - .:/app
-    ports:
-      - 8080:8080
-  mysql:
+  mysql-wallet:
     image: mysql:8.0
     platform: linux/amd64
+    container_name: mysql-wallet
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: wallet
     ports:
-      - 3306:3306
+      - "3306:3306"
     volumes:
-      - .docker/mysql:/var/lib/mysql
+      - mysql_wallet_data:/var/lib/mysql
+      - ./scripts/mysql-wallet:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mysql-balances:
+    image: mysql:8.0
+    platform: linux/amd64
+    container_name: mysql-balances
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: balances
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_balances_data:/var/lib/mysql
+      - ./node/database:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.3
@@ -25,7 +43,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
-      - 2181:2181
+      - "2181:2181"
 
   kafka:
     image: confluentinc/cp-kafka:7.5.3
@@ -47,7 +65,12 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
       CONFLUENT_METRICS_ENABLE: "false"
     ports:
-      - 9092:9092
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
 
   control-center:
     image: confluentinc/cp-enterprise-control-center:7.5.3
@@ -56,7 +79,7 @@ services:
     depends_on:
       - kafka
     ports:
-      - 9021:9021
+      - "9021:9021"
     environment:
       TZ: America/Sao_Paulo
       CONTROL_CENTER_BOOTSTRAP_SERVERS: kafka:29092
@@ -66,5 +89,55 @@ services:
       CONFLUENT_METRICS_TOPIC_REPLICATION: 1
       PORT: 9021
 
+  wallet-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wallet-core
+    platform: linux/amd64
+    depends_on:
+      mysql-wallet:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql-wallet
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: wallet
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      HTTP_PORT: 8080
+    ports:
+      - "8080:8080"
+    restart: on-failure
+
+  balances:
+    build:
+      context: ./node
+      dockerfile: Dockerfile
+    container_name: balances
+    platform: linux/amd64
+    depends_on:
+      mysql-balances:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      HTTP_PORT: 3003
+      DB_HOST: mysql-balances
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: balances
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_CLIENT_ID: balances-service
+      KAFKA_GROUP_ID: balances-consumer-group
+      KAFKA_TOPIC_BALANCE_UPDATED: balance_updated
+    ports:
+      - "3003:3003"
+    restart: on-failure
+
 volumes:
-  mysql_data:
+  mysql_wallet_data:
+  mysql_balances_data:

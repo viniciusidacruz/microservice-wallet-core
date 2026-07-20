@@ -2,6 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"os"
+	"time"
 
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/database"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/event"
@@ -29,17 +32,44 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func main() {
-	db, err := sql.Open("mysql", "root:root@tcp(localhost:3306)/wallet?parseTime=true")
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
 
+	return fallback
+}
+
+func main() {
+	dbHost := getEnv("DB_HOST", "localhost")
+	dbPort := getEnv("DB_PORT", "3306")
+	dbUser := getEnv("DB_USER", "root")
+	dbPassword := getEnv("DB_PASSWORD", "root")
+	dbName := getEnv("DB_NAME", "wallet")
+	kafkaServers := getEnv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+	httpPort := getEnv("HTTP_PORT", "8080")
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", dbUser, dbPassword, dbHost, dbPort, dbName)
+
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		panic(err)
 	}
-
 	defer db.Close()
 
+	for i := 0; i < 30; i++ {
+		if err := db.Ping(); err == nil {
+			break
+		} else if i == 29 {
+			panic(fmt.Sprintf("failed to connect to mysql: %v", err))
+		}
+
+		fmt.Println("waiting for mysql...")
+		time.Sleep(2 * time.Second)
+	}
+
 	configMap := &ckafka.ConfigMap{
-		"bootstrap.servers": "localhost:9092",
+		"bootstrap.servers": kafkaServers,
 		"acks":              "all",
 	}
 
@@ -83,7 +113,7 @@ func main() {
 	accountHandler := web.NewWebAccountHandler(*accountUseCase, *setAccountBalanceUseCase, *getAccountUseCase, *listAccountsUseCase, *deleteAccountUseCase, *deleteAllAccountsUseCase)
 	transactionHandler := web.NewWebTransactionHandler(*transactionUseCase, *deleteTransactionUseCase, *deleteAllTransactionsUseCase)
 
-	webServer := webserver.NewWebServer(":8080")
+	webServer := webserver.NewWebServer(":" + httpPort)
 	webServer.Get("/clients", clientHandler.ListClients)
 	webServer.Get("/clients/{id}", clientHandler.GetClient)
 	webServer.Post("/clients", clientHandler.CreateClient)
