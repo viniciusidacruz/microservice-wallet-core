@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"encoding/json"
+	"fmt"
 
 	ckafka "github.com/confluentinc/confluent-kafka-go/kafka"
 )
@@ -21,7 +22,7 @@ func (p *Producer) Publish(msg interface{}, key []byte, topic string) error {
 	}
 	defer producer.Close()
 
-	json, err := json.Marshal(msg)
+	payload, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
@@ -29,7 +30,7 @@ func (p *Producer) Publish(msg interface{}, key []byte, topic string) error {
 	message := &ckafka.Message{
 		TopicPartition: ckafka.TopicPartition{Topic: &topic, Partition: ckafka.PartitionAny},
 		Key:            key,
-		Value:          json,
+		Value:          payload,
 	}
 
 	err = producer.Produce(message, nil)
@@ -37,7 +38,9 @@ func (p *Producer) Publish(msg interface{}, key []byte, topic string) error {
 		return err
 	}
 
-	producer.Flush(1000)
+	if remaining := producer.Flush(15 * 1000); remaining > 0 {
+		return fmt.Errorf("failed to flush kafka messages: %d remaining", remaining)
+	}
 
 	return nil
 }

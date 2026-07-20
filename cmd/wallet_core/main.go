@@ -5,6 +5,7 @@ import (
 
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/database"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/event"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/event/handler"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/create_account"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/create_client"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/usecases/create_transaction"
@@ -22,7 +23,9 @@ import (
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/web"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/internal/web/webserver"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/events"
+	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/kafka"
 	"github.com.br/viniciusidacruz/microservice-wallet-core/pkg/uow"
+	ckafka "github.com/confluentinc/confluent-kafka-go/kafka"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -35,9 +38,15 @@ func main() {
 
 	defer db.Close()
 
+	configMap := &ckafka.ConfigMap{
+		"bootstrap.servers": "localhost:9092",
+	}
+
+	kafkaProducer := kafka.NewKafkaProducer(configMap)
+
 	eventDispatcher := events.NewEventDispatcher()
+	eventDispatcher.Register("TransactionCreated", handler.NewTransactionCreatedKafkaHandler(kafkaProducer))
 	transactionCreatedEvent := event.NewTransactionCreated()
-	// eventDispatcher.Register("TransactionCreated", handler)
 
 	clientDB := database.NewClientDB(db)
 	accountDB := database.NewAccountDB(db)
